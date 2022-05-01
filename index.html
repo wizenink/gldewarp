@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>My first three.js app</title>
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <div style="display:block;">
+            power
+            <input type="range" min="0" max="10" value="0" step="0.1" id="power" orient="vertical">
+        </div>
+        <div style="display:block;">
+            center_x
+            <input type="range" min="0" max="1" value="0.5" step="0.01" id="center_x" orient="vertical">
+        </div>
+        <div style="display:block;">
+            center_y
+            <input type="range" min="0" max="1" value="0.5" step="0.01" id="center_y" orient="vertical">
+        </div>
+    </div>
+    <script src="js/three.js"></script>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+      
+        void main() {
+          vUv = uv;
+          //gl_Position = vec4(position, 1.0);
+          gl_Position =   projectionMatrix * modelViewMatrix *  vec4(position,1.0);
+        }
+      </script>
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        uniform sampler2D tex;
+        uniform vec2 resolution;
+        uniform float power;
+        uniform float centerx;
+        uniform float centery;
+        varying vec2 vUv;
+        
+        void main() {
+            vec2 p = gl_FragCoord.xy / resolution.x;// We normalize coords, but assuming 1:1 aspect ratio
+	                                                         
+	        float aspectratio = resolution.x / resolution.y;
+
+	        vec2 m = vec2(centerx, centery/aspectratio);//center coords, accounting for the aspect ratio
+	        vec2 d = p - m;//vector from center to current fragment
+	        float r = sqrt(dot(d, d)); // distance of pixel from center
+
+            float scale;
+
+            //Check the aspect ratio for where to clip, on X or Y dimension
+            if (aspectratio < 1.0) 
+                scale = m.x; 
+            else 
+                scale = m.y;
+
+            vec2 uv;
+            if(power==0.0)
+                uv = p;
+            else
+                uv = m + normalize(d) * atan(r * power) * scale / atan(power * scale);                
+            uv.y *= aspectratio;
+
+            gl_FragColor = texture2D(tex, uv);
+        }
+      </script>
+
+    <script>
+        const scene = new THREE.Scene();
+        const width = Math.floor(window.innerWidth * 0.5);
+        const height = Math.floor(window.innerHeight * 0.5);
+        //const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.OrthographicCamera(width / - 2, width / 2, height / 2, height / - 2, 0.01, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        
+        renderer.setSize(width, height);
+        document.body.appendChild(renderer.domElement);
+
+        const geometry = new THREE.PlaneGeometry(width, height);
+        //const material = new THREE.MMaterial({ color: 0x00ff00 });
+        const quad_tex = new THREE.TextureLoader().load('xiria_lgoal.png');
+        var uniforms = {
+            tex: { type: 't', value: quad_tex },
+            resolution: { type: 'vec2', value: new THREE.Vector2(width, height) },
+            power: { type: 'float', value: 0.0},
+            centery: { type: 'float', value: 0.5},
+            centerx: { type: 'float', value: 0.5}
+        };
+        const material = new THREE.ShaderMaterial({
+            vertexShader: document.getElementById('vertex-shader').textContent,
+            fragmentShader: document.getElementById('fragment-shader').textContent,
+            uniforms: uniforms,
+            depthWrite: false,
+            depthTest: false
+        })
+        var slider_power = document.getElementById("power");
+        slider_power.addEventListener("input", updatePower);
+
+        var slider_centerx = document.getElementById("center_x");
+        slider_centerx.addEventListener("input", updateCenterx);
+
+        var slider_centery = document.getElementById("center_y");
+        slider_centery.addEventListener("input", updateCentery);
+
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        camera.position.z = 5;
+
+        function updatePower(e)
+        {
+            var target = (e.target) ? e.target : e.srcElement;
+            uniforms.power = target;
+        }
+
+        function updateCenterx(e)
+        {
+            var target = (e.target) ? e.target : e.srcElement;
+            uniforms.centerx = target;
+        }
+
+        function updateCentery(e)
+        {
+            var target = (e.target) ? e.target : e.srcElement;
+            uniforms.centery = target;
+        }
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+
+</html>
