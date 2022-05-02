@@ -15,15 +15,30 @@
     <div>
         <div style="display:block;">
             power
-            <input type="range" min="0" max="10" value="0" step="0.1" id="power" orient="vertical">
+            <input type="range" min="0" max="10" value="0" step="0.1" id="power" orient="horizontal">
         </div>
         <div style="display:block;">
             center_x
-            <input type="range" min="0" max="1" value="0.5" step="0.01" id="center_x" orient="vertical">
+            <input type="range" min="0" max="1" value="0.5" step="0.01" id="center_x" orient="horizontal">
         </div>
         <div style="display:block;">
             center_y
-            <input type="range" min="0" max="1" value="0.5" step="0.01" id="center_y" orient="vertical">
+            <input type="range" min="0" max="1" value="0.5" step="0.01" id="center_y" orient="horizontal">
+        </div>
+
+        <div style="display:block;">
+            zoom
+            <input type="range" min="1" max="2" value="1.0" step="0.01" id="zoom" orient="horizontal">
+        </div>
+
+        <div style="display:block;">
+            pan
+            <input type="range" min="0" max="1" value="0.5" step="0.01" id="pan" orient="horizontal">
+        </div>
+
+        <div style="display:block;">
+            tilt
+            <input type="range" min="0" max="1" value="0.5" step="0.01" id="tilt" orient="horizontal">
         </div>
     </div>
     <script src="js/three.js"></script>
@@ -43,6 +58,7 @@
         uniform float power;
         uniform float centerx;
         uniform float centery;
+        uniform float zoom;
         varying vec2 vUv;
         
         void main() {
@@ -69,6 +85,7 @@
                 uv = m + normalize(d) * atan(r * power) * scale / atan(power * scale);                
             uv.y *= aspectratio;
 
+            uv /= zoom;
             gl_FragColor = texture2D(tex, uv);
         }
       </script>
@@ -91,6 +108,7 @@
             tex: { type: 't', value: quad_tex },
             resolution: { type: 'vec2', value: new THREE.Vector2(width, height) },
             power: { type: 'float', value: 0.0},
+            zoom: { type: 'float', value: 1.0},
             centery: { type: 'float', value: 0.5},
             centerx: { type: 'float', value: 0.5}
         };
@@ -110,6 +128,8 @@
         var slider_centery = document.getElementById("center_y");
         slider_centery.addEventListener("input", updateCentery);
 
+        var slider_zoom = document.getElementById("zoom");
+        slider_zoom.addEventListener("input", updateZoom);
         const cube = new THREE.Mesh(geometry, material);
         scene.add(cube);
 
@@ -131,6 +151,12 @@
         {
             var target = (e.target) ? e.target : e.srcElement;
             uniforms.centery = target;
+        }
+
+        function updateZoom(e)
+        {
+            var target = (e.target) ? e.target : e.srcElement;
+            uniforms.zoom = target;
         }
         function animate() {
             requestAnimationFrame(animate);
