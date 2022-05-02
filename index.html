@@ -14,6 +14,11 @@
 <body>
     <div>
         <div style="display:block;">
+            image
+            <input type="file" id="file" accept=".jpg, .png, .jpeg" orient="horizontal">
+        </div>
+
+        <div style="display:block;">
             power
             <input type="range" min="0" max="10" value="0" step="0.1" id="power" orient="horizontal">
         </div>
@@ -45,7 +50,7 @@
 
     <script id="vertex-shader" type="x-shader/x-vertex">
         varying vec2 vUv;
-      
+
         void main() {
           vUv = uv;
           //gl_Position = vec4(position, 1.0);
@@ -60,10 +65,10 @@
         uniform float centery;
         uniform float zoom;
         varying vec2 vUv;
-        
+
         void main() {
             vec2 p = gl_FragCoord.xy / resolution.x;// We normalize coords, but assuming 1:1 aspect ratio
-	                                                         
+
 	        float aspectratio = resolution.x / resolution.y;
 
 	        vec2 m = vec2(centerx, centery/aspectratio);//center coords, accounting for the aspect ratio
@@ -73,16 +78,16 @@
             float scale;
 
             //Check the aspect ratio for where to clip, on X or Y dimension
-            if (aspectratio < 1.0) 
-                scale = m.x; 
-            else 
+            if (aspectratio < 1.0)
+                scale = m.x;
+            else
                 scale = m.y;
 
             vec2 uv;
             if(power==0.0)
                 uv = p;
             else
-                uv = m + normalize(d) * atan(r * power) * scale / atan(power * scale);                
+                uv = m + normalize(d) * atan(r * power) * scale / atan(power * scale);
             uv.y *= aspectratio;
 
             uv /= zoom;
@@ -97,13 +102,69 @@
         //const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const camera = new THREE.OrthographicCamera(width / - 2, width / 2, height / 2, height / - 2, 0.01, 1000);
         const renderer = new THREE.WebGLRenderer();
-        
+
+
+        function handleImage( event ) {
+            const img = new Image();
+
+            img.onload = ( event ) => {
+                var texture = new THREE.Texture( event.target );
+                texture.needsUpdate = true;
+                updateTexture(texture);
+                updateCanvasSize( event.target.width, event.target.height );
+            };
+
+            img.src = event.target.result;
+
+        }
+
+
+        function loadFile( file ) {
+
+            const filename = file.name;
+            const extension = filename.split( '.' ).pop().toLowerCase();
+
+            if ( extension === 'jpeg' || extension === 'jpg' || extension ===  'png' ) {
+
+                const reader = new FileReader();
+
+                reader.addEventListener( 'load', event => {
+                    handleImage( event );
+                });
+
+                reader.readAsDataURL( file );
+            }
+        }
+
+
+        function updateCanvasSize( width, height ) {
+
+            const aspect = width / height;
+
+            const newWidth = Math.floor(window.innerWidth * 0.5);
+            const newHeight = newWidth * ( 1.0 / aspect);
+
+            renderer.setSize( newWidth, newHeight );
+
+            camera.left = newWidth / - 2;
+            camera.right = newWidth / 2;
+            camera.top = newHeight / 2;
+            camera.bottom = newHeight / -2;
+            camera.updateProjectionMatrix();
+
+            mesh.scale.set( newWidth, newHeight, 1 );
+
+            updateResolution( newWidth, newHeight );
+        }
+
+
         renderer.setSize(width, height);
         document.body.appendChild(renderer.domElement);
 
-        const geometry = new THREE.PlaneGeometry(width, height);
+        const geometry = new THREE.PlaneGeometry(1, 1);
         //const material = new THREE.MMaterial({ color: 0x00ff00 });
         const quad_tex = new THREE.TextureLoader().load('xiria_lgoal.png');
+
         var uniforms = {
             tex: { type: 't', value: quad_tex },
             resolution: { type: 'vec2', value: new THREE.Vector2(width, height) },
@@ -119,6 +180,12 @@
             depthWrite: false,
             depthTest: false
         })
+
+        var file_browser = document.getElementById('file');
+        file_browser.addEventListener( 'change', event => {
+            loadFile(event.target.files[0]);
+        } );
+
         var slider_power = document.getElementById("power");
         slider_power.addEventListener("input", updatePower);
 
@@ -130,10 +197,21 @@
 
         var slider_zoom = document.getElementById("zoom");
         slider_zoom.addEventListener("input", updateZoom);
-        const cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+
+
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.scale.set(width, height, 1);
+        scene.add(mesh);
 
         camera.position.z = 5;
+
+        function updateTexture( texture ) {
+            uniforms.tex.value = texture;
+        }
+
+        function updateResolution( width, height ) {
+            uniforms.resolution.value = new THREE.Vector2( width, height );
+        }
 
         function updatePower(e)
         {
