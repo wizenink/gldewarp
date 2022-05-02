@@ -38,12 +38,15 @@
 
         <div style="display:block;">
             pan
-            <input type="range" min="0" max="1" value="0.5" step="0.01" id="pan" orient="horizontal">
+            <input type="range" min="-1" max="1" value="0" step="0.01" id="pan" orient="horizontal">
         </div>
 
         <div style="display:block;">
             tilt
-            <input type="range" min="0" max="1" value="0.5" step="0.01" id="tilt" orient="horizontal">
+            <input type="range" min="-1" max="1" value="0" step="0.01" id="tilt" orient="horizontal">
+        </div>
+        <div style="display:block">
+            <button onclick="exportData()">Export</button>
         </div>
     </div>
     <script src="js/three.js"></script>
@@ -64,6 +67,8 @@
         uniform float centerx;
         uniform float centery;
         uniform float zoom;
+        uniform float pan;
+        uniform float tilt;
         varying vec2 vUv;
 
         void main() {
@@ -90,7 +95,10 @@
                 uv = m + normalize(d) * atan(r * power) * scale / atan(power * scale);
             uv.y *= aspectratio;
 
-            uv /= zoom;
+            vec2 scaleCenter = vec2(0.5);
+            uv = (uv - scaleCenter) / zoom + scaleCenter;
+            uv.x = min(max(uv.x+pan,0.0),1.0);
+            uv.y = clamp(uv.y+tilt,0.0,1.0);
             gl_FragColor = texture2D(tex, uv);
         }
       </script>
@@ -104,14 +112,14 @@
         const renderer = new THREE.WebGLRenderer();
 
 
-        function handleImage( event ) {
+        function handleImage(event) {
             const img = new Image();
 
-            img.onload = ( event ) => {
-                var texture = new THREE.Texture( event.target );
+            img.onload = (event) => {
+                var texture = new THREE.Texture(event.target);
                 texture.needsUpdate = true;
                 updateTexture(texture);
-                updateCanvasSize( event.target.width, event.target.height );
+                updateCanvasSize(event.target.width, event.target.height);
             };
 
             img.src = event.target.result;
@@ -119,32 +127,32 @@
         }
 
 
-        function loadFile( file ) {
+        function loadFile(file) {
 
             const filename = file.name;
-            const extension = filename.split( '.' ).pop().toLowerCase();
+            const extension = filename.split('.').pop().toLowerCase();
 
-            if ( extension === 'jpeg' || extension === 'jpg' || extension ===  'png' ) {
+            if (extension === 'jpeg' || extension === 'jpg' || extension === 'png') {
 
                 const reader = new FileReader();
 
-                reader.addEventListener( 'load', event => {
-                    handleImage( event );
+                reader.addEventListener('load', event => {
+                    handleImage(event);
                 });
 
-                reader.readAsDataURL( file );
+                reader.readAsDataURL(file);
             }
         }
 
 
-        function updateCanvasSize( width, height ) {
+        function updateCanvasSize(width, height) {
 
             const aspect = width / height;
 
             const newWidth = Math.floor(window.innerWidth * 0.5);
-            const newHeight = newWidth * ( 1.0 / aspect);
+            const newHeight = newWidth * (1.0 / aspect);
 
-            renderer.setSize( newWidth, newHeight );
+            renderer.setSize(newWidth, newHeight);
 
             camera.left = newWidth / - 2;
             camera.right = newWidth / 2;
@@ -152,9 +160,9 @@
             camera.bottom = newHeight / -2;
             camera.updateProjectionMatrix();
 
-            mesh.scale.set( newWidth, newHeight, 1 );
+            mesh.scale.set(newWidth, newHeight, 1);
 
-            updateResolution( newWidth, newHeight );
+            updateResolution(newWidth, newHeight);
         }
 
 
@@ -168,10 +176,12 @@
         var uniforms = {
             tex: { type: 't', value: quad_tex },
             resolution: { type: 'vec2', value: new THREE.Vector2(width, height) },
-            power: { type: 'float', value: 0.0},
-            zoom: { type: 'float', value: 1.0},
-            centery: { type: 'float', value: 0.5},
-            centerx: { type: 'float', value: 0.5}
+            power: { type: 'float', value: 0.0 },
+            zoom: { type: 'float', value: 1.0 },
+            pan: { type: 'float', value: 0.0 },
+            tilt: { type: 'float', value: 0.0 },
+            centery: { type: 'float', value: 0.5 },
+            centerx: { type: 'float', value: 0.5 }
         };
         const material = new THREE.ShaderMaterial({
             vertexShader: document.getElementById('vertex-shader').textContent,
@@ -182,9 +192,9 @@
         })
 
         var file_browser = document.getElementById('file');
-        file_browser.addEventListener( 'change', event => {
+        file_browser.addEventListener('change', event => {
             loadFile(event.target.files[0]);
-        } );
+        });
 
         var slider_power = document.getElementById("power");
         slider_power.addEventListener("input", updatePower);
@@ -198,6 +208,11 @@
         var slider_zoom = document.getElementById("zoom");
         slider_zoom.addEventListener("input", updateZoom);
 
+        var slider_pan = document.getElementById("pan");
+        slider_pan.addEventListener("input", updatePan);
+
+        var slider_tilt = document.getElementById("tilt");
+        slider_tilt.addEventListener("input", updateTilt);
 
         const mesh = new THREE.Mesh(geometry, material);
         mesh.scale.set(width, height, 1);
@@ -205,36 +220,66 @@
 
         camera.position.z = 5;
 
-        function updateTexture( texture ) {
+        function updateTexture(texture) {
             uniforms.tex.value = texture;
         }
 
-        function updateResolution( width, height ) {
-            uniforms.resolution.value = new THREE.Vector2( width, height );
+        function updateResolution(width, height) {
+            uniforms.resolution.value = new THREE.Vector2(width, height);
         }
 
-        function updatePower(e)
-        {
+        function updatePower(e) {
             var target = (e.target) ? e.target : e.srcElement;
             uniforms.power = target;
         }
 
-        function updateCenterx(e)
-        {
+
+        function updatePan(e) {
+            var target = (e.target) ? e.target : e.srcElement;
+            uniforms.pan = target;
+        }
+
+        function updateTilt(e) {
+            var target = (e.target) ? e.target : e.srcElement;
+            uniforms.tilt = target;
+        }
+
+        function updateCenterx(e) {
             var target = (e.target) ? e.target : e.srcElement;
             uniforms.centerx = target;
         }
 
-        function updateCentery(e)
-        {
+        function updateCentery(e) {
             var target = (e.target) ? e.target : e.srcElement;
             uniforms.centery = target;
         }
 
-        function updateZoom(e)
-        {
+        function updateZoom(e) {
             var target = (e.target) ? e.target : e.srcElement;
             uniforms.zoom = target;
+        }
+
+
+        function download(content, fileName, contentType) {
+            var a = document.createElement("a");
+            var file = new Blob([content], { type: contentType });
+            a.href = URL.createObjectURL(file);
+            a.download = fileName;
+            a.click();
+        }
+
+        function exportData()
+        {
+            const data = {
+                dewarp: {
+                    power: parseFloat(uniforms.power.value),
+                    zoom: parseFloat(uniforms.zoom.value),
+                    pan: parseFloat(uniforms.pan.value),
+                    tilt: parseFloat(uniforms.tilt.value),
+                }
+            };
+            const json_data = JSON.stringify(data,null,2); 
+            download(json_data,"dewarp.json","text/plain");
         }
         function animate() {
             requestAnimationFrame(animate);
